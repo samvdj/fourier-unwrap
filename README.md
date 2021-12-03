@@ -7,4 +7,4 @@ The compressed .rar files contain executables which perform graphics processing 
 
 The software requires the CUDA 6.0 runtime (https://developer.nvidia.com/cuda-toolkit) or later to be installed. OpenCV (http://opencv.org/) is used for visualization and input images are accepted in binary (.BIN) format.
 
-For further information please contact: sam.vanderjeught@uantwerpen.be
+For further information please contact: samvdj@gmail.com

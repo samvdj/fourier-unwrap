@@ -556,10 +556,8 @@ int main(int argc, char** argv)
 	// Copy DCT_XL, DCT_XR, IDCT_XL, DCT_XR and A to GPU memory
 	float* d_A;
 	gpuErrchk(cudaMalloc(&d_A,sizeof(float)*ncols*nrows));
-	//gpuErrchk(cudaMemcpy(d_A, h_A, sizeof(float)*ncols*nrows, cudaMemcpyHostToDevice)); // *Copy input data here or later (see below) (timing)
 	float* d_mask;
 	gpuErrchk(cudaMalloc(&d_mask,sizeof(float)*ncols*nrows));
-	//gpuErrchk(cudaMemcpy(d_mask, h_mask, sizeof(float)*ncols*nrows, cudaMemcpyHostToDevice)); // *Copy input data here or later (see below) (timing)
 	float* d_DCT_XL;
 	gpuErrchk(cudaMalloc(&d_DCT_XL,sizeof(float)*nrows*nrows));
 	gpuErrchk(cudaMemcpy(d_DCT_XL, h_DCT_XL, sizeof(float)*nrows*nrows, cudaMemcpyHostToDevice));
@@ -577,7 +575,6 @@ int main(int argc, char** argv)
 	gpuErrchk(cudaMemcpy(d_n, h_n, sizeof(float)*ncols*nrows, cudaMemcpyHostToDevice));
 
 	// Prepare pointers for temporary and final results	
-	
 	float* d_temp;
 	gpuErrchk(cudaMalloc(&d_temp,sizeof(float)*nrows*ncols));
 	float* c;
@@ -586,9 +583,9 @@ int main(int argc, char** argv)
 	gpuErrchk(cudaMalloc(&rarray,sizeof(float)*nrows*ncols));
 	float* zarray;
 	gpuErrchk(cudaMalloc(&zarray,sizeof(float)*nrows*ncols));
-    float* parray;
+    	float* parray;
 	gpuErrchk(cudaMalloc(&parray,sizeof(float)*nrows*ncols));
-    float* d_soln;
+    	float* d_soln;
 	gpuErrchk(cudaMalloc(&d_soln,sizeof(float)*nrows*ncols));
 	float* h_soln = (float*)malloc(sizeof(float)*nrows*ncols);
 	for (int i = 0; i < nrows*ncols; i++){ h_soln[i] = 0; };
@@ -632,7 +629,7 @@ int main(int argc, char** argv)
 
 
 		int numBlocks = 0;
-        int numThreads = 0;
+        	int numThreads = 0;
 		int maxBlocks = 64;
 		int maxThreads = 256;
 
@@ -683,13 +680,13 @@ int main(int argc, char** argv)
 
 	
 	gpuErrchk(cudaMemcpy(d_soln, h_soln, sizeof(float)*ncols*nrows, cudaMemcpyHostToDevice));
-    float betaprev = 1;
+    	float betaprev = 1;
 	
 	
 	// 1. Weighted Laplacian, only needed once for all iterations
 	dim3 dimGrid(ceil((float)ncols/TILE_WIDTH), ceil((float)nrows/TILE_WIDTH));
-    dim3 dimBlock(TILE_WIDTH, TILE_WIDTH, 1);
-    weighted_laplacian<<<dimGrid, dimBlock>>>(d_A, d_mask, rarray, ncols, nrows);
+   	dim3 dimBlock(TILE_WIDTH, TILE_WIDTH, 1);
+   	weighted_laplacian<<<dimGrid, dimBlock>>>(d_A, d_mask, rarray, ncols, nrows);
 	
 
 	// Phase unwrapping loop
@@ -711,7 +708,7 @@ int main(int argc, char** argv)
 		// 6. updates
 		
 		// beta = SUM(rarray.*zarray)
-     	elementwise_matrixmul<<<dimGrid, dimBlock>>>(rarray,zarray,d_temp,ncols,nrows);
+     		elementwise_matrixmul<<<dimGrid, dimBlock>>>(rarray,zarray,d_temp,ncols,nrows);
 		float beta = totalReduce(nrows*ncols, numThreads, numBlocks, h_odata, d_temp, d_odata);
 		
 		if (iloop == 0)

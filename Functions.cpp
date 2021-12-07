@@ -6,6 +6,92 @@
 #include <cmath>
 #include <fstream>
 
+// CUDA error checking functions
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+
+unsigned int nextPow2(unsigned int x)
+{
+    --x;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x |= x >> 16;
+    return ++x;
+}
+
+inline void gpuAssert(cudaError_t code, char *file, int line, bool abort=true)
+{
+	if (code != cudaSuccess) 
+	{
+		fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+		system("PAUSE");
+		if (abort) exit(code);
+	}
+}
+
+#define iDivUp(a,b) (((int)(a) % (int)(b) != 0) ? (((int)(a) /(int) (b)) + 1) : ((int)(a) /(int) (b)))
+
+// Rescaling function to output images on [0,1] interval
+Mat rescale(Mat input, float c, float d){
+
+	float a = input.at<float>(0,0);
+	float b = input.at<float>(0,0);
+
+	for (int i=0;i<input.cols;i++){
+		for (int j=0;j<input.rows;j++){
+			if (input.at<float>(j,i) < a){
+				a = input.at<float>(j,i);
+			}
+			if (input.at<float>(j,i) > b){
+				b = input.at<float>(j,i);
+			}
+		}
+	}
+	cout << " Before scaling: min = " << a << ", max =  " << b << "." << endl;
+	for (int i=0;i<input.cols;i++){
+		for (int j=0;j<input.rows;j++){
+			if (b != a)
+				input.at<float>(j,i) = input.at<float>(j,i)*(d-c)/(b-a) + (b*c-a*d)/(b-a);	
+			else
+				input.at<float>(j,i) = 1; 
+		}
+	}
+
+	a = input.at<float>(0,0);
+	b = input.at<float>(0,0);
+
+	for (int i=0;i<input.cols;i++){
+		for (int j=0;j<input.rows;j++){
+			if (input.at<float>(j,i) < a){
+				a = input.at<float>(j,i);
+			}
+			if (input.at<float>(j,i) > b){
+				b = input.at<float>(j,i);
+			}
+		}
+	}
+	cout << " After scaling: min = " << a << ", max =  " << b << "." << endl;
+	return input;
+}
+// Matlab is column-major, C is row-major
+void columnOrderToRowOrder(Mat input, float* output, int ncols, int nrows){
+
+	for (int i = 0; i<nrows; i++){
+		for (int j = 0; j<ncols; j++){
+			output[j + i*ncols] = input.at<float>(i,j);
+		}
+	}
+
+}
+void columnOrderToRowOrder_Mat(Mat input, float* output, int nrows, int ncols){
+
+	for (int i = 0; i<nrows; i++){
+		for (int j = 0; j<ncols; j++){
+			input.at<float>(i,j)= output[j + i*ncols];
+		}
+	}
+}
 
 //This function will read any binary data file, assuming that it contains contiguous 4-byte floating point numbers, 
 //and store them into an array. It will return a pointer to the memory block containing this data. 

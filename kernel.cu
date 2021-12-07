@@ -12,100 +12,19 @@
 #include <cufft.h>
 #include "device_launch_parameters.h"
 #include <cublas_v2.h>
-
 #include "cuda_profiler_api.h"
+
 using namespace cv;
 using namespace std;
 float pi = 3.1415926;
 unsigned int ncols = 640;
 unsigned int nrows = 480;
 
-// CUDA error checking functions
-#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-
-unsigned int nextPow2(unsigned int x)
-{
-    --x;
-    x |= x >> 1;
-    x |= x >> 2;
-    x |= x >> 4;
-    x |= x >> 8;
-    x |= x >> 16;
-    return ++x;
-}
-
-inline void gpuAssert(cudaError_t code, char *file, int line, bool abort=true)
-{
-	if (code != cudaSuccess) 
-	{
-		fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-		system("PAUSE");
-		if (abort) exit(code);
-	}
-}
-
-#define iDivUp(a,b) (((int)(a) % (int)(b) != 0) ? (((int)(a) /(int) (b)) + 1) : ((int)(a) /(int) (b)))
-
-// Rescaling function to output images on [0,1] interval
-Mat rescale(Mat input, float c, float d){
-
-	float a = input.at<float>(0,0);
-	float b = input.at<float>(0,0);
-
-	for (int i=0;i<input.cols;i++){
-		for (int j=0;j<input.rows;j++){
-			if (input.at<float>(j,i) < a){
-				a = input.at<float>(j,i);
-			}
-			if (input.at<float>(j,i) > b){
-				b = input.at<float>(j,i);
-			}
-		}
-	}
-	cout << " Before scaling: min = " << a << ", max =  " << b << "." << endl;
-	for (int i=0;i<input.cols;i++){
-		for (int j=0;j<input.rows;j++){
-			if (b != a)
-				input.at<float>(j,i) = input.at<float>(j,i)*(d-c)/(b-a) + (b*c-a*d)/(b-a);	
-			else
-				input.at<float>(j,i) = 1; 
-		}
-	}
-
-	a = input.at<float>(0,0);
-	b = input.at<float>(0,0);
-
-	for (int i=0;i<input.cols;i++){
-		for (int j=0;j<input.rows;j++){
-			if (input.at<float>(j,i) < a){
-				a = input.at<float>(j,i);
-			}
-			if (input.at<float>(j,i) > b){
-				b = input.at<float>(j,i);
-			}
-		}
-	}
-	cout << " After scaling: min = " << a << ", max =  " << b << "." << endl;
-	return input;
-}
-// Matlab is column-major, C is row-major
-void columnOrderToRowOrder(Mat input, float* output, int ncols, int nrows){
-
-	for (int i = 0; i<nrows; i++){
-		for (int j = 0; j<ncols; j++){
-			output[j + i*ncols] = input.at<float>(i,j);
-		}
-	}
-
-}
-void columnOrderToRowOrder_Mat(Mat input, float* output, int nrows, int ncols){
-
-	for (int i = 0; i<nrows; i++){
-		for (int j = 0; j<ncols; j++){
-			input.at<float>(i,j)= output[j + i*ncols];
-		}
-	}
-}
+#define kernel_width 3
+#define kernel_radius kernel_width/2
+#define TILE_WIDTH 16
+#define w (TILE_WIDTH + kernel_width - 1)
+#define pi 3.141592
 
 // GPU: y = sin(x)
 __global__ void get_sin(float *d_sin, float *input, int ncols, int nrows) 
@@ -133,7 +52,7 @@ __global__ void get_cos(float *d_cos, float *input, int ncols, int nrows)
 		d_cos[offset] = cos(input[offset]);
 	} 
 } 
-// GPU: y = x.*(qx²+qy²)
+// GPU: y = x.*(qxÂ²+qyÂ²)
 __global__ void multiply_normalization_coefficients(float *input, int ncols, int nrows) 
 { 
 	int2 addr;
@@ -198,7 +117,7 @@ __global__ void final_unwrap(float *soln, float *phase, float *d_mask, int ncols
 	} 
 }
 }
-// GPU: y = x./(qx²+qy²) with singular point at qx = qy = 0
+// GPU: y = x./(qxÂ²+qyÂ²) with singular point at qx = qy = 0
 __global__ void divide_normalization_coefficients(float *input, float *n, int ncols, int nrows) 
 { 
 	int2 addr;
@@ -245,20 +164,8 @@ __global__ void unwrap(float *d_A, float *d_phi_accent, int ncols, int nrows)
 	} 
 }
 
-#define kernel_width 3
-#define kernel_radius kernel_width/2
-#define TILE_WIDTH 16
-#define w (TILE_WIDTH + kernel_width - 1)
-#define pi 3.141592
 
-// __global__ float gradient_2pi(float p1, float p2)
-//{
-//	//Local simple unwrapper
-//	float r = p1 - p2;
-//	if (r > pi)  r = r - 2*pi;
-//    if (r < -pi) r = r + 2*pi;
-//     
-//}
+
 
 // Naive implementation (no shared memory)
 __global__ void weighted_laplacian(float *input, float* mask, float* output, int ncols, int nrows) {
